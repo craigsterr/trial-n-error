@@ -1,103 +1,207 @@
-import Image from "next/image";
+"use client";
+
+import { useEffect, useState } from "react";
+import { supabase } from "@/lib/supabase";
+import { UUID } from "crypto";
+
+type Problem = {
+  id: number;
+  problem_name: string;
+  factors: JSON;
+  user_id: UUID;
+  created_at: Date;
+  success: boolean;
+};
+type Factor = Record<string, string>;
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  // Change problem input on text entry for submission to database
+  const [problemInput, setProblemInput] = useState("");
+  const [factorInput, setFactorInput] = useState("");
+  const [valueInput, setValueInput] = useState("");
+  const [problems, setProblems] = useState<Problem[]>([]);
+  const [success, setSuccess] = useState(false);
+  const [factors, setFactors] = useState<Factor[]>([]);
+  const handleChange = (
+    e: React.ChangeEvent<HTMLInputElement>,
+    setInput: React.Dispatch<React.SetStateAction<string>>
+  ) => {
+    setInput(e.target.value);
+  };
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+  const handleProblemSubmit = async () => {
+    if (!problemInput) {
+      alert("Enter a problem title!");
+      return;
+    }
+    const { error } = await supabase.from("attempts").insert([
+      {
+        problem_name: problemInput,
+        factors: { [factorInput]: valueInput },
+        success: success,
+        created_at: new Date(),
+      },
+    ]);
+
+    updateProblems();
+
+    if (error) throw error;
+
+    const problemInputElement = document.getElementById(
+      "input-problem"
+    ) as HTMLInputElement;
+    const factorInputElement = document.getElementById(
+      "input-factor"
+    ) as HTMLInputElement;
+    const valueInputElement = document.getElementById(
+      "input-value"
+    ) as HTMLInputElement;
+
+    if (problemInputElement) {
+      problemInputElement.value = "";
+      setProblemInput("");
+    }
+    if (factorInputElement) {
+      factorInputElement.value = "";
+      setFactorInput("");
+    }
+    if (valueInputElement) {
+      valueInputElement.value = "";
+      setValueInput("");
+    }
+  };
+
+  const handleFactorSubmit = async () => {
+    if (!factors) {
+      alert("Enter factors!");
+      return;
+    }
+
+    const factorInputElement = document.getElementById(
+      "input-factor"
+    ) as HTMLInputElement;
+    const valueInputElement = document.getElementById(
+      "input-value"
+    ) as HTMLInputElement;
+
+    const factor = { [factorInput]: valueInput };
+
+    if (factorInputElement) {
+      factorInputElement.value = "";
+      setFactorInput("");
+    }
+    if (valueInputElement) {
+      valueInputElement.value = "";
+      setValueInput("");
+    }
+
+    setFactors((prev) => [...prev, factor]);
+  };
+
+  const updateProblems = async () => {
+    const { data, error } = await supabase.from("attempts").select("*");
+    if (error) throw error;
+    setProblems(data);
+  };
+
+  const getFormatTime = (dateString: Date | string) => {
+    const date = new Date(dateString);
+
+    return new Intl.DateTimeFormat("en-US", {
+      weekday: "long",
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      hour12: true,
+    }).format(date);
+  };
+  useEffect(() => {
+    updateProblems();
+  }, []);
+
+  return (
+    <>
+      <div>
+        {/* Problem input */}
+        <h1>Welcome to Trial & Error!</h1>
+        <p>Enter your problem below:</p>
+        <div className="flex flex-grid gap-2">
+          <input
+            id="input-problem"
+            type="text"
+            className="border-1"
+            placeholder="Your problem here..."
+            onChange={(e) => handleChange(e, setProblemInput)}
+          />
+          <button
+            id="button-problem-submit"
+            className="border-1"
+            onClick={handleProblemSubmit}
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+            Submit Problem
+          </button>
+          <input
+            id="input-factor"
+            type="text"
+            className="border-1"
+            placeholder="Input factor here..."
+            onChange={(e) => handleChange(e, setFactorInput)}
+          />
+          <input
+            id="input-value"
+            type="text"
+            className="border-1"
+            placeholder="Input value here..."
+            onChange={(e) => handleChange(e, setValueInput)}
+          />
+          <button
+            id="button-factor-submit"
+            className="border-1"
+            onClick={handleFactorSubmit}
           >
-            Read our docs
-          </a>
+            Submit Factor
+          </button>
+
+          <button
+            id="button-success"
+            onClick={() => setSuccess((prev) => !prev)}
+            className={"border-1 " + (success ? "bg-gray-400" : "bg-auto")}
+          >
+            Success
+          </button>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
-    </div>
+
+        {/* Factors list */}
+        <div>
+          {factors.map((factor, index) => {
+            const key = Object.keys(factor)[0];
+            const value = factor[key];
+
+            return (
+              <div key={index}>
+                {key}: {value}
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Problems list */}
+        <div>
+          {problems.map((problem, index) => (
+            <div key={index}>
+              {problem.problem_name +
+                " " +
+                JSON.stringify(problem.factors) +
+                " (created on " +
+                getFormatTime(problem.created_at) +
+                ") " +
+                (problem.success ? "success" : "fail")}
+            </div>
+          ))}
+        </div>
+      </div>
+    </>
   );
 }
