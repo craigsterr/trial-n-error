@@ -28,11 +28,13 @@ export default function Home() {
   const [problemInput, setProblemInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [factorInput, setFactorInput] = useState("");
-  const [valueInput, setValueInput] = useState("");
+  const [scaleValue, setScaleValue] = useState("");
   const [problems, setProblems] = useState<Problem[]>([]);
   const [success, setSuccess] = useState(false);
   const [factors, setFactors] = useState<Factor[]>([]);
   const [selectedProblem, setSelectedProblem] = useState<Problem>();
+  const [isScale, setIsScale] = useState(false);
+  const [binaryValue, setBinaryValue] = useState(true);
 
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
@@ -122,9 +124,9 @@ export default function Home() {
         problem_id: selectedProblem.id,
         created_at: new Date(),
         name: factorInput,
-        is_scale: true,
-        value_binary: true,
-        value_scale: null,
+        is_scale: isScale,
+        value_binary: binaryValue,
+        value_scale: scaleValue,
       },
     ]);
 
@@ -138,7 +140,7 @@ export default function Home() {
     }
     if (valueInputElement) {
       valueInputElement.value = "";
-      setValueInput("");
+      setScaleValue("");
     }
   };
 
@@ -222,13 +224,34 @@ export default function Home() {
             placeholder="Input factor here..."
             onChange={(e) => handleChange(e, setFactorInput)}
           />
-          <input
-            id="input-value"
-            type="text"
-            className="border-1"
-            placeholder="Input value here..."
-            onChange={(e) => handleChange(e, setValueInput)}
-          />
+          {isScale && (
+            <input
+              id="input-value"
+              pattern="[0-9]+"
+              className="border-1"
+              placeholder="Input value here..."
+              onChange={(e) => {
+                handleChange(e, setScaleValue);
+              }}
+            />
+          )}
+          {!isScale && (
+            <select name="select-binary" className="border-1 ">
+              <option value="true" onClick={() => setBinaryValue(true)}>
+                True
+              </option>
+              <option value="false" onClick={() => setBinaryValue(false)}>
+                False
+              </option>
+            </select>
+          )}
+          <button
+            id="button-success"
+            onClick={() => setIsScale((prev) => !prev)}
+            className={"border-1 "}
+          >
+            {isScale ? "Scale" : "Binary"}
+          </button>
           <button
             id="button-factor-submit"
             className="border-1"
@@ -244,20 +267,21 @@ export default function Home() {
             <div
               key={index}
               className={
-                "hover:bg-white/5 cursor-pointer " +
+                "hover:bg-white/5 cursor-pointer text-amber-300 " +
                 (problem == selectedProblem ? "bg-white/10" : "")
               }
               onClick={() => {
-                setSelectedProblem(problem);
+                if (problem == selectedProblem) setSelectedProblem(undefined);
+                else setSelectedProblem(problem);
               }}
             >
               {problem.name +
                 " (created on " +
                 getFormatTime(problem.created_at) +
                 ") " +
-                (problem.success ? "success" : "fail")}
+                (problem.success ? "(success)" : "(fail)")}
               {problem == selectedProblem && (
-                <div className="opacity-75">
+                <div className="opacity-50 text-orange-500">
                   {"Description: " + problem.description}
                 </div>
               )}
@@ -269,9 +293,8 @@ export default function Home() {
                       value = factor.value_scale;
                     }
                     return (
-                      <div key={index}>
-                        {"(factor_name: " +
-                          factor.name +
+                      <div key={index} className="opacity-50 text-red-500">
+                        {factor.name +
                           " (value: " +
                           value +
                           ") (created on " +
