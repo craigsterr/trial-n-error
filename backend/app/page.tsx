@@ -5,23 +5,35 @@ import { supabase } from "@/lib/supabase";
 import { UUID } from "crypto";
 
 type Problem = {
-  id: number;
-  problem_name: string;
-  factors: JSON;
+  id: UUID;
   user_id: UUID;
   created_at: Date;
+  name: string;
+  description: string;
   success: boolean;
 };
-type Factor = Record<string, string>;
+
+type Factor = {
+  id: number;
+  problem_id: UUID;
+  created_at: Date;
+  name: string;
+  is_scale: boolean;
+  value_binary: boolean;
+  value_scale: number;
+};
 
 export default function Home() {
   // Change problem input on text entry for submission to database
   const [problemInput, setProblemInput] = useState("");
+  const [descriptionInput, setDescriptionInput] = useState("");
   const [factorInput, setFactorInput] = useState("");
   const [valueInput, setValueInput] = useState("");
   const [problems, setProblems] = useState<Problem[]>([]);
   const [success, setSuccess] = useState(false);
   const [factors, setFactors] = useState<Factor[]>([]);
+  const [selectedProblem, setSelectedProblem] = useState<Problem>();
+
   const handleChange = (
     e: React.ChangeEvent<HTMLInputElement>,
     setInput: React.Dispatch<React.SetStateAction<string>>
@@ -34,11 +46,12 @@ export default function Home() {
       alert("Enter a problem title!");
       return;
     }
-    const { error } = await supabase.from("attempts").insert([
+
+    const { error } = await supabase.from("problems").insert([
       {
-        problem_name: problemInput,
-        factors: { [factorInput]: valueInput },
+        name: problemInput,
         success: success,
+        description: descriptionInput,
         created_at: new Date(),
       },
     ]);
@@ -50,30 +63,50 @@ export default function Home() {
     const problemInputElement = document.getElementById(
       "input-problem"
     ) as HTMLInputElement;
-    const factorInputElement = document.getElementById(
-      "input-factor"
-    ) as HTMLInputElement;
-    const valueInputElement = document.getElementById(
-      "input-value"
+    const descriptionInputElement = document.getElementById(
+      "input-description"
     ) as HTMLInputElement;
 
     if (problemInputElement) {
       problemInputElement.value = "";
       setProblemInput("");
     }
-    if (factorInputElement) {
-      factorInputElement.value = "";
+    if (descriptionInputElement) {
+      descriptionInputElement.value = "";
       setFactorInput("");
     }
-    if (valueInputElement) {
-      valueInputElement.value = "";
-      setValueInput("");
+  };
+
+  const handleProblemDelete = async () => {
+    if (!selectedProblem) {
+      alert("Select a problem to delete!");
+      return;
     }
+
+    const { error: problemError } = await supabase
+      .from("problems")
+      .delete()
+      .eq("id", selectedProblem.id);
+
+    const { error: factorError } = await supabase
+      .from("factors")
+      .delete()
+      .eq("problem_id", selectedProblem.id);
+
+    updateProblems();
+
+    if (problemError) throw problemError;
+    if (factorError) throw factorError;
   };
 
   const handleFactorSubmit = async () => {
     if (!factors) {
       alert("Enter factors!");
+      return;
+    }
+
+    if (!selectedProblem) {
+      alert("Select a problem for your factor!");
       return;
     }
 
@@ -84,7 +117,20 @@ export default function Home() {
       "input-value"
     ) as HTMLInputElement;
 
-    const factor = { [factorInput]: valueInput };
+    const { error } = await supabase.from("factors").insert([
+      {
+        problem_id: selectedProblem.id,
+        created_at: new Date(),
+        name: factorInput,
+        is_scale: true,
+        value_binary: true,
+        value_scale: null,
+      },
+    ]);
+
+    if (error) throw error;
+
+    updateFactors();
 
     if (factorInputElement) {
       factorInputElement.value = "";
@@ -94,14 +140,18 @@ export default function Home() {
       valueInputElement.value = "";
       setValueInput("");
     }
-
-    setFactors((prev) => [...prev, factor]);
   };
 
   const updateProblems = async () => {
-    const { data, error } = await supabase.from("attempts").select("*");
+    const { data, error } = await supabase.from("problems").select("*");
     if (error) throw error;
     setProblems(data);
+  };
+
+  const updateFactors = async () => {
+    const { data, error } = await supabase.from("factors").select("*");
+    if (error) throw error;
+    setFactors(data);
   };
 
   const getFormatTime = (dateString: Date | string) => {
@@ -119,6 +169,7 @@ export default function Home() {
   };
   useEffect(() => {
     updateProblems();
+    updateFactors();
   }, []);
 
   return (
@@ -135,6 +186,20 @@ export default function Home() {
             placeholder="Your problem here..."
             onChange={(e) => handleChange(e, setProblemInput)}
           />
+          <input
+            id="input-description"
+            type="text"
+            className="border-1"
+            placeholder="Your description here..."
+            onChange={(e) => handleChange(e, setDescriptionInput)}
+          />
+          <button
+            id="button-success"
+            onClick={() => setSuccess((prev) => !prev)}
+            className={"border-1 " + (success ? "bg-gray-400" : "bg-auto")}
+          >
+            Success
+          </button>
           <button
             id="button-problem-submit"
             className="border-1"
@@ -142,6 +207,14 @@ export default function Home() {
           >
             Submit Problem
           </button>
+          <button
+            id="button-problem-submit"
+            className="border-1"
+            onClick={handleProblemDelete}
+          >
+            Delete Problem
+          </button>
+
           <input
             id="input-factor"
             type="text"
@@ -163,41 +236,51 @@ export default function Home() {
           >
             Submit Factor
           </button>
-
-          <button
-            id="button-success"
-            onClick={() => setSuccess((prev) => !prev)}
-            className={"border-1 " + (success ? "bg-gray-400" : "bg-auto")}
-          >
-            Success
-          </button>
-        </div>
-
-        {/* Factors list */}
-        <div>
-          {factors.map((factor, index) => {
-            const key = Object.keys(factor)[0];
-            const value = factor[key];
-
-            return (
-              <div key={index}>
-                {key}: {value}
-              </div>
-            );
-          })}
         </div>
 
         {/* Problems list */}
         <div>
           {problems.map((problem, index) => (
-            <div key={index}>
-              {problem.problem_name +
-                " " +
-                JSON.stringify(problem.factors) +
+            <div
+              key={index}
+              className={
+                "hover:bg-white/5 cursor-pointer " +
+                (problem == selectedProblem ? "bg-white/10" : "")
+              }
+              onClick={() => {
+                setSelectedProblem(problem);
+              }}
+            >
+              {problem.name +
                 " (created on " +
                 getFormatTime(problem.created_at) +
                 ") " +
                 (problem.success ? "success" : "fail")}
+              {problem == selectedProblem && (
+                <div className="opacity-75">
+                  {"Description: " + problem.description}
+                </div>
+              )}
+              {problem == selectedProblem &&
+                factors.map((factor, index) => {
+                  if (factor.problem_id == problem.id) {
+                    let value = factor.value_binary;
+                    if (factor.is_scale) {
+                      value = factor.value_scale;
+                    }
+                    return (
+                      <div key={index}>
+                        {"(factor_name: " +
+                          factor.name +
+                          " (value: " +
+                          value +
+                          ") (created on " +
+                          getFormatTime(factor.created_at) +
+                          ") "}
+                      </div>
+                    );
+                  }
+                })}
             </div>
           ))}
         </div>
