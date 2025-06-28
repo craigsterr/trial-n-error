@@ -28,7 +28,7 @@ export default function Home() {
   const [problemInput, setProblemInput] = useState("");
   const [descriptionInput, setDescriptionInput] = useState("");
   const [factorInput, setFactorInput] = useState("");
-  const [scaleValue, setScaleValue] = useState("");
+  const [scaleValue, setScaleValue] = useState(0);
   const [problems, setProblems] = useState<Problem[]>([]);
   const [success, setSuccess] = useState(false);
   const [factors, setFactors] = useState<Factor[]>([]);
@@ -140,7 +140,7 @@ export default function Home() {
     }
     if (valueInputElement) {
       valueInputElement.value = "";
-      setScaleValue("");
+      setScaleValue(0);
     }
   };
 
@@ -227,11 +227,14 @@ export default function Home() {
           {isScale && (
             <input
               id="input-value"
-              pattern="[0-9]+"
               className="border-1"
-              placeholder="Input value here..."
+              placeholder="Input number here..."
+              value={scaleValue}
               onChange={(e) => {
-                handleChange(e, setScaleValue);
+                const numValue = parseInt(
+                  e.target.value.replace(/[^0-9]/g, "")
+                );
+                setScaleValue(numValue);
               }}
             />
           )}
@@ -295,9 +298,9 @@ export default function Home() {
                     return (
                       <div key={index} className="opacity-50 text-red-500">
                         {factor.name +
-                          " (value: " +
+                          ": " +
                           value +
-                          ") (created on " +
+                          " (created on " +
                           getFormatTime(factor.created_at) +
                           ") "}
                       </div>
